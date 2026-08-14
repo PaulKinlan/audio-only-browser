@@ -6,6 +6,17 @@ const SAMPLE_PORT = 18_901;
 const API_PORT = 18_909;
 const BACKEND_DEBUG_PORT = 18_922;
 const UI_DEBUG_PORT = 18_923;
+const CONTROLLER_ORIGIN = `http://127.0.0.1:${API_PORT}`;
+const UPDATE_EVIDENCE = Deno.env.get("UPDATE_EVIDENCE") === "1";
+const EVIDENCE_FILES = [
+  "01-dom-before.png",
+  "02-dom-after.png",
+  "03-navigation-after.png",
+  "04-form-before.png",
+  "05-form-after.png",
+  "06-voice-before.png",
+  "07-voice-after.png",
+];
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -95,6 +106,76 @@ async function api(path: string, body?: unknown) {
   return data;
 }
 
+async function connectToChrome(debugPort: number) {
+  let websocketUrl = "";
+  for (let attempt = 0; attempt < 60; attempt++) {
+    try {
+      const targets = await (await fetch(
+        `http://127.0.0.1:${debugPort}/json/list`,
+      )).json();
+      websocketUrl = targets.find((target: { type: string }) =>
+        target.type === "page"
+      )?.webSocketDebuggerUrl || "";
+      if (websocketUrl) break;
+    } catch {
+      // Chrome is still starting.
+    }
+    await delay(100);
+  }
+  assert(websocketUrl, "Chrome did not expose a page target");
+  const cdp = new CDPClient();
+  await cdp.connect(websocketUrl);
+  await Promise.all([cdp.send("Page.enable"), cdp.send("Runtime.enable")]);
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 1_000,
+    height: 760,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  return cdp;
+}
+
+async function captureEvidence(cdp: CDPClient, name: string) {
+  assert(
+    EVIDENCE_FILES.includes(name),
+    `Unexpected evidence filename: ${name}`,
+  );
+  const metrics = await cdp.send<{
+    cssContentSize: { width: number; height: number };
+  }>("Page.getLayoutMetrics");
+  const width = Math.ceil(metrics.cssContentSize.width);
+  const height = Math.ceil(metrics.cssContentSize.height);
+  const screenshot = await cdp.send<{ data: string }>(
+    "Page.captureScreenshot",
+    {
+      format: "png",
+      fromSurface: true,
+      captureBeyondViewport: true,
+      clip: { x: 0, y: 0, width, height, scale: 1 },
+    },
+  );
+  const binary = atob(screenshot.data);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  assert(bytes.length > 1_000, `${name} should contain a meaningful PNG`);
+  assert(
+    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e &&
+      bytes[3] === 0x47,
+    `${name} should have a PNG signature`,
+  );
+  if (UPDATE_EVIDENCE) {
+    await Deno.mkdir(`${ROOT}evidence`, { recursive: true });
+    await Deno.writeFile(`${ROOT}evidence/${name}`, bytes);
+  } else {
+    const committed = await Deno.readFile(`${ROOT}evidence/${name}`);
+    assert(
+      committed.length > 1_000 && committed[0] === 0x89 &&
+        committed[1] === 0x50 && committed[2] === 0x4e &&
+        committed[3] === 0x47,
+      `Committed evidence/${name} should be a meaningful PNG`,
+    );
+  }
+}
+
 async function launchUiChrome() {
   const profile = await Deno.makeTempDir({ prefix: "audio-browser-ui-test-" });
   const process = new Deno.Command(
@@ -113,26 +194,7 @@ async function launchUiChrome() {
       stderr: "null",
     },
   ).spawn();
-  let websocketUrl = "";
-  for (let attempt = 0; attempt < 60; attempt++) {
-    try {
-      const targets = await (await fetch(
-        `http://127.0.0.1:${UI_DEBUG_PORT}/json/list`,
-      )).json();
-      websocketUrl = targets.find((target: { type: string }) =>
-        target.type === "page"
-      )
-        ?.webSocketDebuggerUrl || "";
-      if (websocketUrl) break;
-    } catch {
-      // Chrome is still starting.
-    }
-    await delay(100);
-  }
-  assert(websocketUrl, "UI Chrome did not expose a page target");
-  const cdp = new CDPClient();
-  await cdp.connect(websocketUrl);
-  await Promise.all([cdp.send("Page.enable"), cdp.send("Runtime.enable")]);
+  const cdp = await connectToChrome(UI_DEBUG_PORT);
   return { cdp, process, profile };
 }
 
@@ -190,16 +252,18 @@ Deno.test({
     const sampleOrigin = `http://127.0.0.1:${SAMPLE_PORT}`;
     const browser = new AudioBrowser({ allowedTargetOrigins: [sampleOrigin] });
     let apiServer: Deno.HttpServer | undefined;
+    let backendEvidenceCdp: CDPClient | undefined;
     let uiChrome: Awaited<ReturnType<typeof launchUiChrome>> | undefined;
 
     try {
       await waitForUrl(`${sampleOrigin}/index.html`);
       await browser.launch();
+      backendEvidenceCdp = await connectToChrome(BACKEND_DEBUG_PORT);
       apiServer = Deno.serve({
         hostname: "127.0.0.1",
         port: API_PORT,
         onListen: () => {},
-      }, createHandler(browser));
+      }, createHandler(browser, { controllerPort: API_PORT }));
 
       const frontendResponse = await fetch(
         `http://127.0.0.1:${API_PORT}/index.html`,
@@ -212,7 +276,7 @@ Deno.test({
       );
 
       const crossOriginResponse = await fetch(
-        `http://127.0.0.1:${API_PORT}/health`,
+        `${CONTROLLER_ORIGIN}/snapshot`,
         { headers: { Origin: "http://attacker.example" } },
       );
       assert(
@@ -222,6 +286,28 @@ Deno.test({
       assert(
         !crossOriginResponse.headers.has("Access-Control-Allow-Origin"),
         "API responses should not include wildcard CORS",
+      );
+
+      const reboundResponse = await fetch(`${CONTROLLER_ORIGIN}/snapshot`, {
+        headers: {
+          Host: "attacker.example",
+          Origin: "http://attacker.example",
+        },
+      });
+      assert(
+        reboundResponse.status === 403,
+        "a hostile Host with its matching hostile Origin should be rejected",
+      );
+
+      const fixedOriginResponse = await fetch(`${CONTROLLER_ORIGIN}/snapshot`, {
+        headers: {
+          Host: `127.0.0.1:${API_PORT}`,
+          Origin: CONTROLLER_ORIGIN,
+        },
+      });
+      assert(
+        fixedOriginResponse.ok,
+        "the configured controller Host and Origin should be allowed",
       );
 
       const disallowedTarget = await fetch(
@@ -274,6 +360,7 @@ Deno.test({
         "semantic snapshot should include named links",
       );
       assertIncludes(session.narration, "Next steps", "session narration");
+      await captureEvidence(backendEvidenceCdp, "01-dom-before.png");
 
       const button = await api("/intent", {
         action: "reveal the featured essay details",
@@ -302,6 +389,7 @@ Deno.test({
           JSON.stringify(updates.updates)
         }`,
       );
+      await captureEvidence(backendEvidenceCdp, "02-dom-after.png");
 
       const article = await api("/intent", {
         action:
@@ -326,6 +414,7 @@ Deno.test({
         "Read about Paul Kinlan and AI Focus",
         "article next steps",
       );
+      await captureEvidence(backendEvidenceCdp, "03-navigation-after.png");
 
       const about = await api("/intent", {
         action: "read about Paul Kinlan and AI Focus",
@@ -337,6 +426,7 @@ Deno.test({
         ),
         "semantic snapshot should describe form controls",
       );
+      await captureEvidence(backendEvidenceCdp, "04-form-before.png");
 
       const submitted = await api("/intent", {
         action:
@@ -365,15 +455,33 @@ Deno.test({
         "Return to the AI Focus snapshot",
         "confirmation next steps",
       );
+      await captureEvidence(backendEvidenceCdp, "05-form-after.png");
 
       uiChrome = await launchUiChrome();
       await uiChrome.cdp.send("Page.addScriptToEvaluateOnNewDocument", {
         source: `
-          globalThis.__voiceCalls = { recognition: [], synthesis: [] };
+          globalThis.__voiceCalls = { recognition: [], synthesis: [], intents: [] };
+          const nativeFetch = globalThis.fetch.bind(globalThis);
+          globalThis.fetch = (input, init) => {
+            const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+            if (url.pathname === "/intent" && init?.body) {
+              globalThis.__voiceCalls.intents.push(JSON.parse(String(init.body)).action);
+            }
+            return nativeFetch(input, init);
+          };
           class MockRecognition {
-            constructor() { this.listeners = {}; }
+            constructor() {
+              this.listeners = {};
+              globalThis.__mockRecognition = this;
+            }
             addEventListener(name, callback) { (this.listeners[name] ||= []).push(callback); }
             start() { globalThis.__voiceCalls.recognition.push("start"); }
+            emitResult(transcript) {
+              globalThis.__voiceCalls.recognition.push("result:" + transcript);
+              const event = { results: [[{ transcript }]] };
+              for (const callback of this.listeners.result || []) callback(event);
+              for (const callback of this.listeners.end || []) callback({});
+            }
           }
           class MockUtterance { constructor(text) { this.text = text; this.lang = ""; } }
           Object.defineProperty(globalThis, "SpeechRecognition", { configurable: true, value: MockRecognition });
@@ -408,6 +516,7 @@ Deno.test({
         uiChrome.cdp,
         "globalThis.__voiceCalls.synthesis.some(call => call.startsWith('speak:'))",
       );
+      await captureEvidence(uiChrome.cdp, "06-voice-before.png");
 
       await evaluate(
         uiChrome.cdp,
@@ -417,37 +526,65 @@ Deno.test({
         uiChrome.cdp,
         "globalThis.__voiceCalls.recognition.includes('start')",
       );
+      const voiceIntent =
+        "read how a modern Lighthouse might work with large language models";
       await evaluate(
         uiChrome.cdp,
-        `
-        document.querySelector('#text-intent').value = 'read how a modern Lighthouse might work with large language models';
-        document.querySelector('#intent-form').requestSubmit();
-      `,
+        `globalThis.__mockRecognition.emitResult(${
+          JSON.stringify(voiceIntent)
+        })`,
       );
       await waitForBrowser(
         uiChrome.cdp,
         "document.querySelector('#connection-status').textContent.startsWith('Now browsing How might a modern Lighthouse')",
       );
+      await captureEvidence(uiChrome.cdp, "07-voice-after.png");
+      const voiceSnapshot = await api("/snapshot");
+      assertIncludes(
+        voiceSnapshot.snapshot.url,
+        "/article.html",
+        "voice-driven CDP navigation URL",
+      );
       const voiceEvidence = await evaluate<{
-        calls: { recognition: string[]; synthesis: string[] };
+        calls: {
+          recognition: string[];
+          synthesis: string[];
+          intents: string[];
+        };
         transcript: string;
         narration: string;
+        typedValue: string;
       }>(
         uiChrome.cdp,
         `({
         calls: globalThis.__voiceCalls,
         transcript: document.querySelector('#transcript-display').textContent,
-        narration: document.querySelector('#narration-display').textContent
+        narration: document.querySelector('#narration-display').textContent,
+        typedValue: document.querySelector('#text-intent').value
       })`,
       );
       assertIncludes(
         voiceEvidence.transcript,
         "read how a modern Lighthouse",
-        "typed fallback transcript",
+        "recognition-result transcript",
       );
       assert(
-        voiceEvidence.calls.recognition.includes("start"),
-        "microphone control should call the recognition seam",
+        voiceEvidence.calls.recognition.includes("start") &&
+          voiceEvidence.calls.recognition.includes(`result:${voiceIntent}`),
+        "microphone control should start recognition and receive its result event",
+      );
+      assert(
+        voiceEvidence.calls.intents.includes(voiceIntent),
+        "the recognition transcript should reach submitIntent and its /intent request",
+      );
+      assert(
+        voiceEvidence.typedValue === "",
+        "voice attestation should not substitute typed-form submission",
+      );
+      assertIncludes(
+        voiceEvidence.narration,
+        "Activated Read how a modern Lighthouse",
+        "voice-driven action narration",
       );
       assert(
         voiceEvidence.calls.synthesis.filter((call: string) =>
@@ -464,8 +601,13 @@ Deno.test({
       console.log("EVIDENCE navigation:", article.snapshot.url);
       console.log("EVIDENCE form submission:", submitted.snapshot.url);
       console.log("EVIDENCE voice seam:", JSON.stringify(voiceEvidence.calls));
+      console.log(
+        "EVIDENCE screenshots:",
+        EVIDENCE_FILES.map((name) => `evidence/${name}`).join(" | "),
+      );
     } finally {
       uiChrome?.cdp.close();
+      backendEvidenceCdp?.close();
       try {
         uiChrome?.process.kill("SIGTERM");
       } catch { /* already stopped */ }

@@ -68,6 +68,10 @@ type AudioBrowserOptions = {
   allowedTargetOrigins?: string[];
 };
 
+type HandlerOptions = {
+  controllerPort: number;
+};
+
 class HttpError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -635,15 +639,39 @@ async function frontendResponse(pathname: string) {
   });
 }
 
-export function createHandler(browser: AudioBrowser) {
+const protectedControllerPaths = new Set([
+  "/session",
+  "/snapshot",
+  "/intent",
+  "/updates",
+]);
+
+function controllerOriginForPort(port: number) {
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`Invalid controller port: ${port}`);
+  }
+  return new URL(`http://127.0.0.1:${port}`);
+}
+
+export function createHandler(
+  browser: AudioBrowser,
+  options: HandlerOptions,
+) {
+  const controller = controllerOriginForPort(options.controllerPort);
   return async (request: Request) => {
     const url = new URL(request.url);
-    const requestOrigin = request.headers.get("Origin");
-    if (requestOrigin && requestOrigin !== url.origin) {
-      return json(
-        { error: "Requests must come from the same-origin frontend" },
-        403,
-      );
+    if (protectedControllerPaths.has(url.pathname)) {
+      const requestHost = request.headers.get("Host");
+      const requestOrigin = request.headers.get("Origin");
+      if (
+        requestHost !== controller.host ||
+        (requestOrigin !== null && requestOrigin !== controller.origin)
+      ) {
+        return json(
+          { error: "Requests must come from the configured controller origin" },
+          403,
+        );
+      }
     }
     try {
       if (request.method === "GET") {
@@ -711,7 +739,7 @@ if (import.meta.main) {
     port,
     onListen: ({ port }) =>
       console.log(`Audio browser listening on http://127.0.0.1:${port}`),
-  }, createHandler(browser));
+  }, createHandler(browser, { controllerPort: port }));
   let shuttingDown = false;
   const signals = ["SIGINT", "SIGTERM"] as const;
   const shutdown = async () => {

@@ -49,9 +49,12 @@ cd server
 deno run -A main.ts
 ```
 
-Open <http://127.0.0.1:9090/>. The API and frontend share that origin; the API
-does not provide wildcard CORS and rejects requests carrying a different
-`Origin`. The Deno listener and sample command bind only to loopback.
+Open <http://127.0.0.1:9090/>. The API and frontend share that fixed controller
+origin. Protected browser-control endpoints validate both the request `Host`
+(`127.0.0.1` plus the actual `PORT`) and any supplied `Origin` against it, so a
+DNS-rebinding request cannot authorize itself with a matching hostile Host and
+Origin. The API does not provide wildcard CORS. The Deno listener and sample
+command bind only to loopback.
 
 The default browsable origin is `http://127.0.0.1:9001`. Configure a different
 sample origin, or additional exact HTTP(S) origins, before starting the server:
@@ -92,12 +95,37 @@ remains available regardless of the audio transport.
 
 The integration test starts an isolated sample server and Chrome profiles. It
 covers the curated link/button/form journey, mutation narration, a delayed CDP
-navigation regression, target-origin and same-origin request rejection, and the
-frontend recognition/synthesis seams.
+navigation regression, target-origin enforcement, fixed controller Host/Origin
+validation (including a hostile Host with its matching hostile Origin), and the
+frontend recognition/synthesis seams. The voice regression fires a mocked real
+`SpeechRecognition` result event, observes its transcript in the `/intent`
+request made by `submitIntent`, and asserts the resulting CDP navigation and
+spoken narration without submitting the typed form.
 
 ```sh
 deno test -A tests/browser_integration_test.ts
 ```
+
+### Browser evidence
+
+The test's real CDP sessions capture these committed, full-page PNGs. They show
+the dated local mapping of real aifoc.us/Paul Kinlan content and the observable
+results rather than only proving that routes return 200:
+
+| Behavior | Before | After |
+| --- | --- | --- |
+| Delayed DOM mutation | [`01-dom-before.png`](evidence/01-dom-before.png) | [`02-dom-after.png`](evidence/02-dom-after.png) |
+| Link navigation | [`02-dom-after.png`](evidence/02-dom-after.png) | [`03-navigation-after.png`](evidence/03-navigation-after.png) |
+| Local demo form | [`04-form-before.png`](evidence/04-form-before.png) | [`05-form-after.png`](evidence/05-form-after.png) |
+| Recognition-result voice action | [`06-voice-before.png`](evidence/06-voice-before.png) | [`07-voice-after.png`](evidence/07-voice-after.png) |
+
+Regenerate the artifacts through that same integration journey with
+`UPDATE_EVIDENCE=1 deno test -A tests/browser_integration_test.ts`. Without that
+opt-in, the test captures fresh screenshots in memory and validates both those
+captures and the committed artifact set without modifying the working tree.
+The screenshots contain only the public curated sample and synthetic demo input;
+they contain no cookies, headers, Chrome profile data, or other private runtime
+state.
 
 Test processes and Chrome profiles use temporary locations; they do not write
 runtime response or log artifacts into the repository. Local `*.log` and

@@ -11,6 +11,10 @@ body {
   padding: 1.25rem;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .container {
   padding: clamp(1.25rem, 5vw, 2rem);
   border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);

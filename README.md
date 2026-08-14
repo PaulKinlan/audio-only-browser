@@ -26,13 +26,13 @@ August 2026**. It includes the AI Focus introduction, a shortened mapping of
 “how might a modern Lighthouse work with large language models?”, and author
 context. Each page identifies its source and snapshot status.
 
-Two minimal interactions are deliberately not copied from the live sites and
-are labelled **demo-only** in the pages:
+Two minimal interactions are deliberately not copied from the live sites and are
+labelled **demo-only** in the pages:
 
 - a button that reveals featured-essay details after a short delay, to exercise
   DOM-update narration;
-- a local email form and confirmation page, to exercise form intent handling.
-  It creates no subscription and stores or sends no submitted information.
+- a local email form and confirmation page, to exercise form intent handling. It
+  creates no subscription and stores or sends no submitted information.
 
 ## Run locally
 
@@ -112,18 +112,18 @@ The test's real CDP sessions capture these committed, full-page PNGs. They show
 the dated local mapping of real aifoc.us/Paul Kinlan content and the observable
 results rather than only proving that routes return 200:
 
-| Behavior | Before | After |
-| --- | --- | --- |
-| Delayed DOM mutation | [`01-dom-before.png`](evidence/01-dom-before.png) | [`02-dom-after.png`](evidence/02-dom-after.png) |
-| Link navigation | [`02-dom-after.png`](evidence/02-dom-after.png) | [`03-navigation-after.png`](evidence/03-navigation-after.png) |
-| Local demo form | [`04-form-before.png`](evidence/04-form-before.png) | [`05-form-after.png`](evidence/05-form-after.png) |
-| Recognition-result voice action | [`06-voice-before.png`](evidence/06-voice-before.png) | [`07-voice-after.png`](evidence/07-voice-after.png) |
+| Behavior                        | Before                                                | After                                                         |
+| ------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------- |
+| Delayed DOM mutation            | [`01-dom-before.png`](evidence/01-dom-before.png)     | [`02-dom-after.png`](evidence/02-dom-after.png)               |
+| Link navigation                 | [`02-dom-after.png`](evidence/02-dom-after.png)       | [`03-navigation-after.png`](evidence/03-navigation-after.png) |
+| Local demo form                 | [`04-form-before.png`](evidence/04-form-before.png)   | [`05-form-after.png`](evidence/05-form-after.png)             |
+| Recognition-result voice action | [`06-voice-before.png`](evidence/06-voice-before.png) | [`07-voice-after.png`](evidence/07-voice-after.png)           |
 
 Regenerate the artifacts through that same integration journey with
 `UPDATE_EVIDENCE=1 deno test -A tests/browser_integration_test.ts`. Without that
 opt-in, the test captures fresh screenshots in memory and validates both those
-captures and the committed artifact set without modifying the working tree.
-The screenshots contain only the public curated sample and synthetic demo input;
+captures and the committed artifact set without modifying the working tree. The
+screenshots contain only the public curated sample and synthetic demo input;
 they contain no cookies, headers, Chrome profile data, or other private runtime
 state.
 
@@ -136,5 +136,5 @@ frontend, server and sample directories are ignored without being deleted.
 
 The functional demo requires Deno plus a Chrome binary. It cannot run as a
 complete application on GitHub Pages or a Deno Deploy runtime that does not
-expose Chrome. Keep the controller loopback-only unless a separate authenticated,
-origin-restricted control plane is designed.
+expose Chrome. Keep the controller loopback-only unless a separate
+authenticated, origin-restricted control plane is designed.

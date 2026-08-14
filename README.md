@@ -15,8 +15,9 @@ See `frontend/app.js` for the `WebRTCSeam` comment block which explains where to
 ## Running the Project
 1. Run the server (Deno):
    `cd server && deno run -A main.ts`
+   (Runs on port 9090)
 2. Serve the frontend and sample site:
    You can use python or Deno's built-in file server.
-   `cd frontend && python -m http.server 8000`
-   `cd sample-site && python -m http.server 8001`
-3. Open `http://localhost:8000` in your browser.
+   `cd frontend && python3 -m http.server 9000`
+   `cd sample-site && python3 -m http.server 9001`
+3. Open `http://localhost:9000` in your browser. (The app expects the sample site on `http://localhost:9001/index.html`)

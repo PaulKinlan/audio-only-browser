@@ -21,3 +21,18 @@ See `frontend/app.js` for the `WebRTCSeam` comment block which explains where to
    `cd frontend && python3 -m http.server 9000`
    `cd sample-site && python3 -m http.server 9001`
 3. Open `http://localhost:9000` in your browser. (The app expects the sample site on `http://localhost:9001/index.html`)
+
+## Deployment note
+
+This demo needs a running Deno server + headless Chrome (it drives a real browser via CDP), so it
+does NOT run on GitHub Pages (static-only). Deploy it to Deno Deploy (or run locally):
+
+```sh
+cd server && deno run -A main.ts     # CDP driver on :9090
+cd sample-site && python3 -m http.server 9001 &
+cd frontend && python3 -m http.server 9000 &
+```
+
+Note: Deno Deploy does not expose a Chrome binary, so the CDP driver needs a separate machine with
+headless Chrome; the frontend can be hosted statically. This is documented, not silently force-fit
+to static hosting.

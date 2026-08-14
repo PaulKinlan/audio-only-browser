@@ -6,7 +6,7 @@ const transcriptDisplay = document.getElementById('transcript-display');
 const interfaceDiv = document.querySelector('.interface');
 const sessionSetup = document.querySelector('.session-setup');
 
-const SERVER_URL = 'http://localhost:8080';
+const SERVER_URL = 'http://localhost:9090';
 
 // Initialize Web Speech API
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

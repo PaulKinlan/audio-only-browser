@@ -92,7 +92,7 @@ function generateNarration(structure: any) {
     return narration;
 }
 
-const PORT = 8080;
+const PORT = 9090;
 Deno.serve({ port: PORT }, async (req: Request) => {
     const url = new URL(req.url);
     const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };

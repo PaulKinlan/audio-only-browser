@@ -14,26 +14,32 @@ async function launchChrome() {
             "--disable-gpu",
             "--no-sandbox"
         ],
-        stderr: "piped",
+        stdout: "null",
+        stderr: "null",
     });
     chromeProc = command.spawn();
     
-    // Read stderr to find the ws:// url
-    const reader = chromeProc.stderr.getReader();
-    const decoder = new TextDecoder();
+    // Wait for the debugging port to be ready
     let wsUrl = "";
-    
-    while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        const text = decoder.decode(value);
-        const match = text.match(/ws:\/\/[^\s]+/);
-        if (match) {
-            wsUrl = match[0];
-            break;
+    for (let i = 0; i < 20; i++) {
+        try {
+            const res = await fetch("http://127.0.0.1:9222/json");
+            const targets = await res.json();
+            const pageTarget = targets.find((t: any) => t.type === "page");
+            if (pageTarget && pageTarget.webSocketDebuggerUrl) {
+                wsUrl = pageTarget.webSocketDebuggerUrl;
+                break;
+            }
+        } catch (e) {
+            // wait and retry
         }
+        await new Promise(r => setTimeout(r, 500));
     }
-    console.log("Found WS URL:", wsUrl);
+    
+    if (!wsUrl) {
+        throw new Error("Could not find Page WS URL");
+    }
+    console.log("Found Page WS URL:", wsUrl);
     await cdp.connect(wsUrl);
     console.log("Connected to CDP!");
 

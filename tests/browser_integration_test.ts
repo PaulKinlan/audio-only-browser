@@ -288,16 +288,23 @@ Deno.test({
         "API responses should not include wildcard CORS",
       );
 
-      const reboundResponse = await fetch(`${CONTROLLER_ORIGIN}/snapshot`, {
-        headers: {
-          Host: "attacker.example",
-          Origin: "http://attacker.example",
-        },
-      });
-      assert(
-        reboundResponse.status === 403,
-        "a hostile Host with its matching hostile Origin should be rejected",
-      );
+      for (
+        const protectedPath of ["/session", "/snapshot", "/intent", "/updates"]
+      ) {
+        const reboundResponse = await fetch(
+          `${CONTROLLER_ORIGIN}${protectedPath}`,
+          {
+            headers: {
+              Host: "attacker.example",
+              Origin: "http://attacker.example",
+            },
+          },
+        );
+        assert(
+          reboundResponse.status === 403,
+          `a hostile Host with its matching hostile Origin should be rejected for ${protectedPath}`,
+        );
+      }
 
       const fixedOriginResponse = await fetch(`${CONTROLLER_ORIGIN}/snapshot`, {
         headers: {

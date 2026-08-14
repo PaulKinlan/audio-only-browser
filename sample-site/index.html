@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Sample Site</title>
+</head>
+<body>
+    <h1>Welcome to the Sample Site</h1>
+    <p>This is a small test site for the audio-only browser.</p>
+    <nav>
+        <ul>
+            <li><a href="article.html">Read the article about web dev</a></li>
+            <li><a href="about.html">About us</a></li>
+        </ul>
+    </nav>
+    <section>
+        <button id="load-comments">Load Comments</button>
+        <div id="comments-section"></div>
+    </section>
+    <script>
+        document.getElementById('load-comments').addEventListener('click', () => {
+            setTimeout(() => {
+                const comments = document.getElementById('comments-section');
+                comments.innerHTML = '<h2>Comments</h2><p>User1: Great site!</p>';
+            }, 500);
+        });
+    </script>
+</body>
+</html>

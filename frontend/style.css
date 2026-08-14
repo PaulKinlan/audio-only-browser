@@ -1,0 +1,48 @@
+body {
+    font-family: sans-serif;
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 20px;
+    background: #f9f9f9;
+}
+.container {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.session-setup {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.session-setup input {
+    flex-grow: 1;
+    padding: 10px;
+    font-size: 16px;
+}
+.session-setup button, #mic-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+#mic-btn {
+    display: block;
+    width: 100%;
+    font-size: 20px;
+    margin-top: 20px;
+    background: #28a745;
+}
+#mic-btn.listening {
+    background: #dc3545;
+}
+.status-box, .transcript-box {
+    margin: 15px 0;
+    padding: 15px;
+    background: #e9ecef;
+    border-radius: 4px;
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Audio-Only Browser</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Audio-Only Browser</h1>
+        <p>A voice-first web navigation interface.</p>
+        
+        <div class="session-setup">
+            <input type="url" id="target-url" value="http://localhost:8001/index.html" placeholder="Enter URL to browse">
+            <button id="start-session">Start Session</button>
+        </div>
+
+        <div class="interface" style="display: none;">
+            <div class="status-box">
+                <strong>Narration:</strong> <span id="narration-display">Waiting to start...</span>
+            </div>
+            
+            <div class="transcript-box">
+                <strong>Transcript:</strong> <span id="transcript-display"></span>
+            </div>
+
+            <button id="mic-btn">🎙️ Hold to Speak</button>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

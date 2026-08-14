@@ -1,17 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en-GB">
+  <head>
     <meta charset="UTF-8">
-    <title>About Us</title>
-</head>
-<body>
-    <h1>About Us</h1>
-    <p>We are exploring audio-first navigation without relying entirely on screen readers.</p>
-    <form action="index.html">
-        <label>Sign up for newsletter: <input type="email" name="email"></label>
-        <button type="submit">Sign Up</button>
-    </form>
-    <br>
-    <a href="index.html">Back to Home</a>
-</body>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description"
+      content="About the team building the Audio Trailhead demonstration.">
+    <title>About the Audio Trailhead</title>
+  </head>
+  <body>
+    <main>
+      <h1>About the Audio Trailhead</h1>
+      <p>We are exploring audio-first navigation that understands a person's goal instead of reading every DOM node.</p>
+      <form action="subscribed.html" method="get"
+        aria-label="Trailhead newsletter">
+        <fieldset>
+          <legend>Get journey updates</legend>
+          <label for="newsletter-email">Email address</label>
+          <input id="newsletter-email" type="email" name="email"
+            autocomplete="email" required>
+          <button type="submit">Sign up for updates</button>
+        </fieldset>
+      </form>
+      <p><a href="index.html">Return to the trailhead</a></p>
+    </main>
+  </body>
 </html>

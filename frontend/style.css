@@ -1,48 +1,105 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  background: Canvas;
+  color: CanvasText;
+}
+
 body {
-    font-family: sans-serif;
-    max-width: 600px;
-    margin: 40px auto;
-    padding: 20px;
-    background: #f9f9f9;
+  max-width: 44rem;
+  margin: 2.5rem auto;
+  padding: 1.25rem;
 }
+
 .container {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  padding: clamp(1.25rem, 5vw, 2rem);
+  border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
+  border-radius: 0.75rem;
 }
-.session-setup {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+
+.session-setup,
+#intent-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1.25rem;
 }
-.session-setup input {
-    flex-grow: 1;
-    padding: 10px;
-    font-size: 16px;
+
+.input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
 }
-.session-setup button, #mic-btn {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
+
+input {
+  flex: 1 1 18rem;
+  min-width: 0;
+  padding: 0.75rem;
+  font: inherit;
+  border: 1px solid color-mix(in srgb, CanvasText 45%, transparent);
+  border-radius: 0.375rem;
+  background: Field;
+  color: FieldText;
 }
+
+button {
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  color: white;
+  background: #075ea8;
+  border: 0;
+  border-radius: 0.375rem;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 0.2rem solid #f0a000;
+  outline-offset: 0.15rem;
+}
+
+button:disabled,
+input:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 #mic-btn {
-    display: block;
-    width: 100%;
-    font-size: 20px;
-    margin-top: 20px;
-    background: #28a745;
+  width: 100%;
+  margin-block: 0.75rem;
+  background: #16713c;
 }
+
 #mic-btn.listening {
-    background: #dc3545;
+  background: #aa2430;
 }
-.status-box, .transcript-box {
-    margin: 15px 0;
-    padding: 15px;
-    background: #e9ecef;
-    border-radius: 4px;
+
+.status-box,
+.transcript-box {
+  display: grid;
+  gap: 0.25rem;
+  margin-block: 0.75rem;
+  padding: 1rem;
+  background: color-mix(in srgb, CanvasText 8%, Canvas);
+  border-radius: 0.375rem;
+}
+
+#connection-status {
+  min-height: 1.5em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  button {
+    border: 1px solid ButtonText;
+  }
 }

@@ -1,38 +1,90 @@
 # audio-only-browser
 
-An audio-only way to browse the web. This is not a traditional screen reader (it doesn't recite ARIA trees). Instead, a server runs a real browser (headless Chrome via CDP), and the user interacts by voice. LLMs (or heuristics, in this demo) help navigate the sites by understanding the user's intent.
+An audio-first way to browse the web. This is not a traditional screen reader
+and does not recite an ARIA tree. A Deno server drives a real headless Chrome
+session over the Chrome DevTools Protocol (CDP), builds a compact semantic page
+snapshot, and maps a person's natural-language request to links, buttons and
+forms.
 
-## The Concept
-1. **Reasoning about links**: Summarizes the "next steps" instead of doing a full DOM dump.
-2. **Describing actions**: Let the user describe actions ("go to the article about X"), which the server resolves to elements and navigates.
-3. **DOM-update narration**: When the DOM changes, the browser narrates what changed concisely.
-4. **Voice models via WebRTC**: Currently uses built-in Web Speech API and SpeechSynthesis, with a seam for WebRTC integration.
+## What it does
 
-## WebRTC Seam
-In a production version, the Web Speech API would be replaced by a WebRTC connection to a voice model. 
-See `frontend/app.js` for the `WebRTCSeam` comment block which explains where to integrate the bidirectional audio stream.
+1. **Semantic snapshots** describe the page title, URL, headings, landmarks,
+   controls, forms and a short content excerpt.
+2. **Intent-driven actions** let someone say or type requests such as “read the
+   article about web development”, “load the comments”, or “enter
+   listener@example.com and sign up”. The matching control is operated in the
+   real page through CDP.
+3. **Next-step narration** says where the browser is and identifies a few useful
+   actions after each navigation or interaction.
+4. **DOM-update narration** uses a `MutationObserver` inside the browsed page to
+   report concise added, removed or changed content.
+5. **Voice and text UI** uses the Web Speech recognition and `speechSynthesis`
+   APIs when available, with a fully functional text form as a fallback.
 
-## Running the Project
-1. Run the server (Deno):
-   `cd server && deno run -A main.ts`
-   (Runs on port 9090)
-2. Serve the frontend and sample site:
-   You can use python or Deno's built-in file server.
-   `cd frontend && python3 -m http.server 9000`
-   `cd sample-site && python3 -m http.server 9001`
-3. Open `http://localhost:9000` in your browser. (The app expects the sample site on `http://localhost:9001/index.html`)
+The sample site is a playable multi-page journey covering link navigation, a
+delayed comments update, an article, a newsletter form and a confirmation page.
+
+## Run locally
+
+Chrome must be available as `google-chrome-stable`. Set `CHROME_BIN` if it has
+another path.
+
+```sh
+# terminal 1: CDP driver and API on :9090
+cd server
+deno run -A main.ts
+
+# terminal 2: sample journey on :9001
+cd sample-site
+python3 -m http.server 9001
+
+# terminal 3: voice UI on :9000
+cd frontend
+python3 -m http.server 9000
+```
+
+Open <http://localhost:9000>. The default target is
+<http://localhost:9001/index.html>.
+
+The server also accepts `PORT` and `CHROME_DEBUG_PORT` environment variables.
+The UI can target another API endpoint with `?server=http://host:port`.
+
+## API
+
+- `POST /session` with `{ "targetUrl": "https://…" }` starts browsing and
+  returns a narration plus semantic snapshot.
+- `POST /intent` with `{ "action": "natural language request" }` operates the
+  matched page control and returns the effect, updated snapshot and next steps.
+- `GET /snapshot` returns the current semantic snapshot.
+- `GET /updates` drains concise DOM-update messages.
+- `GET /health` confirms the API is ready.
+
+## Voice integration seam
+
+`frontend/app.js` keeps voice I/O behind `WebSpeechVoiceIO`. A production WebRTC
+implementation can replace its `speak(text)` and `startListening()` methods,
+send microphone audio to a remote voice model, pass remote transcripts to
+`submitIntent()`, and play the returned audio track. The text action form
+remains available regardless of the audio transport.
+
+## Test
+
+The integration test starts temporary static servers and isolated Chrome
+profiles. It drives the API's real CDP browser through button, link and form
+intents, checks mutation narration and next steps, then opens the frontend in a
+second real Chrome session to verify recognition and synthesis seam calls plus
+typed fallback input.
+
+```sh
+deno test -A tests/browser_integration_test.ts
+```
+
+Test processes and Chrome profiles use temporary locations; they do not write
+runtime response or log artifacts into the repository.
 
 ## Deployment note
 
-This demo needs a running Deno server + headless Chrome (it drives a real browser via CDP), so it
-does NOT run on GitHub Pages (static-only). Deploy it to Deno Deploy (or run locally):
-
-```sh
-cd server && deno run -A main.ts     # CDP driver on :9090
-cd sample-site && python3 -m http.server 9001 &
-cd frontend && python3 -m http.server 9000 &
-```
-
-Note: Deno Deploy does not expose a Chrome binary, so the CDP driver needs a separate machine with
-headless Chrome; the frontend can be hosted statically. This is documented, not silently force-fit
-to static hosting.
+The frontend is static, but the functional demo requires Deno plus a Chrome
+binary. It cannot run as a complete application on GitHub Pages or a Deno Deploy
+runtime that does not expose Chrome. Host the CDP driver on a machine with
+Chrome and point the frontend at it.

@@ -1,29 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en-GB">
+  <head>
     <meta charset="UTF-8">
-    <title>My Sample Site</title>
-</head>
-<body>
-    <h1>Welcome to the Sample Site</h1>
-    <p>This is a small test site for the audio-only browser.</p>
-    <nav>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description"
+      content="A multi-page demonstration journey for the audio-only browser.">
+    <title>Audio Trailhead</title>
+  </head>
+  <body>
+    <header>
+      <h1>Welcome to the Audio Trailhead</h1>
+      <p>This small site demonstrates links, buttons, live page updates and a form.</p>
+    </header>
+    <main>
+      <nav aria-label="Sample journey">
         <ul>
-            <li><a href="article.html">Read the article about web dev</a></li>
-            <li><a href="about.html">About us</a></li>
+          <li><a href="article.html">Read the article about web development</a></li>
+          <li><a href="about.html">Learn about the Audio Trailhead team</a></li>
         </ul>
-    </nav>
-    <section>
-        <button id="load-comments">Load Comments</button>
-        <div id="comments-section"></div>
-    </section>
+      </nav>
+      <section aria-labelledby="discussion-title">
+        <h2 id="discussion-title">Discussion</h2>
+        <button id="load-comments" type="button">Load comments</button>
+        <div id="comments-section" aria-live="polite"></div>
+      </section>
+    </main>
     <script>
-        document.getElementById('load-comments').addEventListener('click', () => {
-            setTimeout(() => {
-                const comments = document.getElementById('comments-section');
-                comments.innerHTML = '<h2>Comments</h2><p>User1: Great site!</p>';
-            }, 500);
-        });
+    document.getElementById("load-comments").addEventListener("click", (event) => {
+      event.currentTarget.disabled = true;
+      setTimeout(() => {
+        const comments = document.getElementById("comments-section");
+        comments.innerHTML =
+          "<h3>Latest comments</h3><p>Jamie: Voice navigation made this journey easy.</p>";
+      }, 300);
+    });
     </script>
-</body>
+  </body>
 </html>

@@ -1,32 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en-GB">
+  <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description"
+      content="Browse a real web page through spoken or typed natural-language actions.">
     <title>Audio-Only Browser</title>
     <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Audio-Only Browser</h1>
-        <p>A voice-first web navigation interface.</p>
-        
-        <div class="session-setup">
-            <input type="url" id="target-url" value="http://localhost:9001/index.html" placeholder="Enter URL to browse">
-            <button id="start-session">Start Session</button>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Audio-Only Browser</h1>
+      <p>Navigate a real headless browser with spoken or typed requests.</p>
+
+      <div class="session-setup">
+        <label for="target-url">Page to browse</label>
+        <div class="input-row">
+          <input type="url" id="target-url"
+            value="http://localhost:9001/index.html" required>
+          <button id="start-session" type="button">Start session</button>
+        </div>
+      </div>
+      <p id="connection-status" role="status">Not connected.</p>
+
+      <section class="interface" hidden
+        aria-labelledby="browser-controls-title">
+        <h2 id="browser-controls-title">Browser controls</h2>
+        <div class="status-box" aria-live="polite">
+          <strong>Narration</strong>
+          <span id="narration-display">Waiting to start…</span>
         </div>
 
-        <div class="interface" style="display: none;">
-            <div class="status-box">
-                <strong>Narration:</strong> <span id="narration-display">Waiting to start...</span>
-            </div>
-            
-            <div class="transcript-box">
-                <strong>Transcript:</strong> <span id="transcript-display"></span>
-            </div>
-
-            <button id="mic-btn">🎙️ Hold to Speak</button>
+        <div class="transcript-box">
+          <strong>Last request</strong>
+          <span id="transcript-display">None yet.</span>
         </div>
-    </div>
+
+        <button id="mic-btn" type="button" aria-pressed="false">
+                <span aria-hidden="true">🎙️</span> Speak an action
+            </button>
+
+        <form id="intent-form">
+          <label for="text-intent">Or type an action</label>
+          <div class="input-row">
+            <input id="text-intent" name="action" type="text"
+              autocomplete="off"
+              placeholder="For example: read the web dev article" required>
+            <button type="submit">Send action</button>
+          </div>
+        </form>
+      </section>
+    </main>
     <script src="app.js"></script>
-</body>
+  </body>
 </html>

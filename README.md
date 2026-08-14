@@ -145,10 +145,25 @@ deno task test:pages
 ```
 
 The Pages acceptance starts a real Chrome session over CDP at the repository
-subpath, clicks through the landing, delayed DOM reveal, real sample links, and
-demo form confirmation, and fails on browser errors or 404s. Its committed
-landing screenshot is [`08-pages-subpath.png`](evidence/08-pages-subpath.png);
-regenerate it with `UPDATE_PAGES_EVIDENCE=1 deno task test:pages`.
+subpath, uses CDP pointer and keyboard input to click through the landing,
+delayed DOM reveal, real sample links, and demo form confirmation, and fails on
+browser errors or 404s. The same journey retains visual evidence after each
+meaningful interaction:
+
+| Pages journey state | Committed evidence |
+| --- | --- |
+| Project-subpath landing | [`08-pages-subpath.png`](evidence/08-pages-subpath.png) |
+| Revealed 18-minute details and disabled control | [`09-pages-sample-reveal.png`](evidence/09-pages-sample-reveal.png) |
+| Lighthouse article navigation | [`10-pages-lighthouse-article.png`](evidence/10-pages-lighthouse-article.png) |
+| About form with synthetic invalid email, before submit | [`11-pages-about-form.png`](evidence/11-pages-about-form.png) |
+| Visible no-subscription confirmation | [`12-pages-no-subscription.png`](evidence/12-pages-no-subscription.png) |
+
+Regenerate all five Pages artifacts through that journey with
+`UPDATE_PAGES_EVIDENCE=1 deno task test:pages`. Without the opt-in, the test
+captures each current state in memory and validates the corresponding committed
+PNG without writing to the repository. The form uses only
+`pages-test@example.invalid`; the images contain no cookies, request headers,
+Chrome profile paths, local ports, or other private runtime information.
 
 For GitHub Pages, the recommended source is **Deploy from a branch**, using the
 publishing branch and the **`/docs` folder**. The build is committed so Pages

@@ -5,7 +5,14 @@ const DOCS = new URL("../docs/", import.meta.url);
 const PROJECT_PATH = "/audio-only-browser/";
 const DEBUG_PORT = 18_932;
 const UPDATE_EVIDENCE = Deno.env.get("UPDATE_PAGES_EVIDENCE") === "1";
-const PAGES_EVIDENCE = new URL("../evidence/08-pages-subpath.png", import.meta.url);
+const PAGES_EVIDENCE_FILES = [
+  "08-pages-subpath.png",
+  "09-pages-sample-reveal.png",
+  "10-pages-lighthouse-article.png",
+  "11-pages-about-form.png",
+  "12-pages-no-subscription.png",
+] as const;
+type PagesEvidenceFile = (typeof PAGES_EVIDENCE_FILES)[number];
 
 const publishedFiles = [
   "index.html",
@@ -223,28 +230,37 @@ async function assertAuthenticPageActions() {
   );
 }
 
-async function capturePagesEvidence(cdp: CDPClient) {
+async function capturePagesEvidence(
+  cdp: CDPClient,
+  name: PagesEvidenceFile,
+) {
+  assert(
+    PAGES_EVIDENCE_FILES.includes(name),
+    `Unexpected Pages evidence filename: ${name}`,
+  );
   const screenshot = await cdp.send<{ data: string }>("Page.captureScreenshot", {
     format: "png",
     fromSurface: true,
   });
   const binary = atob(screenshot.data);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-  assert(bytes.length > 10_000, "Pages screenshot should be a meaningful PNG");
+  assert(bytes.length > 10_000, `${name} should contain a meaningful PNG`);
   assert(
     bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e &&
       bytes[3] === 0x47,
-    "Pages screenshot should have a PNG signature",
+    `${name} should have a PNG signature`,
   );
+
+  const evidenceUrl = new URL(`../evidence/${name}`, import.meta.url);
   if (UPDATE_EVIDENCE) {
-    await Deno.writeFile(PAGES_EVIDENCE, bytes);
+    await Deno.writeFile(evidenceUrl, bytes);
   } else {
-    const committed = await Deno.readFile(PAGES_EVIDENCE);
+    const committed = await Deno.readFile(evidenceUrl);
     assert(
       committed.length > 10_000 && committed[0] === 0x89 &&
         committed[1] === 0x50 && committed[2] === 0x4e &&
         committed[3] === 0x47,
-      "Committed Pages acceptance screenshot should be a meaningful PNG",
+      `Committed evidence/${name} should be a meaningful PNG`,
     );
   }
 }
@@ -359,7 +375,7 @@ Deno.test({
           landing.externalSources.includes("https://paul.kinlan.me/"),
         "landing should link to the live curated sources",
       );
-      await capturePagesEvidence(cdp);
+      await capturePagesEvidence(cdp, "08-pages-subpath.png");
 
       await clickAt(cdp, "#view-evidence");
       await waitForBrowser(cdp, "location.hash === '#evidence'");
@@ -390,12 +406,20 @@ Deno.test({
           true,
         "demo reveal should visibly update control state",
       );
+      await capturePagesEvidence(cdp, "09-pages-sample-reveal.png");
 
       await clickAt(cdp, 'a[href="article.html"]');
       await waitForBrowser(
         cdp,
         "location.pathname.endsWith('/sample/article.html') && document.title.startsWith('How might a modern Lighthouse')",
       );
+      assert(
+        await evaluate(cdp, "document.querySelector('h1')?.textContent") ===
+          "How might a modern Lighthouse work with large language models?",
+        "article evidence should show the real Lighthouse snapshot navigation",
+      );
+      await capturePagesEvidence(cdp, "10-pages-lighthouse-article.png");
+
       await clickAt(cdp, 'a[href="about.html"]');
       await waitForBrowser(
         cdp,
@@ -403,6 +427,13 @@ Deno.test({
       );
 
       await typeAt(cdp, "#demo-email", "pages-test@example.invalid");
+      assert(
+        await evaluate(cdp, "document.querySelector('#demo-email').value") ===
+          "pages-test@example.invalid",
+        "form evidence should contain only the synthetic invalid address",
+      );
+      await capturePagesEvidence(cdp, "11-pages-about-form.png");
+
       await clickAt(cdp, 'button[type="submit"]');
       await waitForBrowser(
         cdp,
@@ -417,6 +448,7 @@ Deno.test({
           confirmation.url.includes("email=pages-test%40example.invalid"),
         "demo form should navigate to its visible no-subscription confirmation",
       );
+      await capturePagesEvidence(cdp, "12-pages-no-subscription.png");
 
       await clickAt(cdp, 'a[href="index.html"]');
       await waitForBrowser(cdp, "location.pathname.endsWith('/sample/index.html')");
@@ -437,7 +469,10 @@ Deno.test({
       console.log("PAGES EVIDENCE landing:", landingUrl);
       console.log("PAGES EVIDENCE reveal: featured details visible");
       console.log("PAGES EVIDENCE form:", confirmation.url);
-      console.log("PAGES EVIDENCE screenshot: evidence/08-pages-subpath.png");
+      console.log(
+        "PAGES EVIDENCE screenshots:",
+        PAGES_EVIDENCE_FILES.map((name) => `evidence/${name}`).join(" | "),
+      );
     } finally {
       cdp?.close();
       try {

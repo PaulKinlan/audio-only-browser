@@ -392,15 +392,12 @@ Deno.test({
         updates.updates.some((update: string) =>
           update.includes("featured Paul Kinlan")
         ),
-        `expected concise added-content update, got ${
-          JSON.stringify(updates.updates)
-        }`,
+        `expected concise added-content update, got ${JSON.stringify(updates.updates)}`,
       );
       await captureEvidence(backendEvidenceCdp, "02-dom-after.png");
 
       const article = await api("/intent", {
-        action:
-          "read how a modern Lighthouse might work with large language models",
+        action: "read how a modern Lighthouse might work with large language models",
       });
       assert(
         article.resolution.kind === "link",
@@ -537,9 +534,7 @@ Deno.test({
         "read how a modern Lighthouse might work with large language models";
       await evaluate(
         uiChrome.cdp,
-        `globalThis.__mockRecognition.emitResult(${
-          JSON.stringify(voiceIntent)
-        })`,
+        `globalThis.__mockRecognition.emitResult(${JSON.stringify(voiceIntent)})`,
       );
       await waitForBrowser(
         uiChrome.cdp,

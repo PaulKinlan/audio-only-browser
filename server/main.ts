@@ -589,10 +589,9 @@ export class AudioBrowser {
 function nextStepNarration(snapshot: SemanticSnapshot) {
   const location = snapshot.title || snapshot.headings[0]?.text ||
     "an untitled page";
-  const topic =
-    snapshot.headings[0]?.text && snapshot.headings[0].text !== location
-      ? ` The main topic is ${snapshot.headings[0].text}.`
-      : "";
+  const topic = snapshot.headings[0]?.text && snapshot.headings[0].text !== location
+    ? ` The main topic is ${snapshot.headings[0].text}.`
+    : "";
   const available = snapshot.controls.filter((control) =>
     !control.disabled && control.name
   ).slice(0, 4);

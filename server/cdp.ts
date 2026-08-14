@@ -18,8 +18,7 @@ export class CDPClient {
       const ws = new WebSocket(wsUrl);
       this.ws = ws;
       ws.onopen = () => resolve();
-      ws.onerror = () =>
-        reject(new Error(`Unable to connect to Chrome at ${wsUrl}`));
+      ws.onerror = () => reject(new Error(`Unable to connect to Chrome at ${wsUrl}`));
       ws.onclose = () => {
         const error = new Error("Chrome DevTools connection closed");
         for (const request of this.pendingRequests.values()) {

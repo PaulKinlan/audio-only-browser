@@ -137,14 +137,14 @@ Deno.serve({ port: PORT }, async (req: Request) => {
                 const actionText = "${action.toLowerCase()}";
                 const links = Array.from(document.querySelectorAll('a'));
                 for (const a of links) {
-                    if (actionText.includes(a.innerText.toLowerCase())) {
+                    if (a.innerText.toLowerCase().includes(actionText)) {
                         a.click();
                         return "Clicked link: " + a.innerText;
                     }
                 }
                 const buttons = Array.from(document.querySelectorAll('button'));
                 for (const b of buttons) {
-                    if (actionText.includes(b.innerText.toLowerCase())) {
+                    if (b.innerText.toLowerCase().includes(actionText)) {
                         b.click();
                         return "Clicked button: " + b.innerText;
                     }

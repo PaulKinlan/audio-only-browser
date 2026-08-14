@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Audio-Only Browser is a local-only research prototype that drives an allowlisted Chrome session by intent. Explore its static sample and reviewed evidence.">
+    <meta name="theme-color" content="#111827">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111827'/%3E%3Cpath d='M9 19v-6m5 10V9m5 12V11m5 7v-4' stroke='%237dd3fc' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="./assets/site.css">
+    <title>Audio-Only Browser — local control, public evidence</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to main content</a>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Audio-Only Browser home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span>Audio-Only Browser</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul>
+          <li><a href="#boundary">How it works</a></li>
+          <li><a id="view-evidence" href="#evidence">Evidence</a></li>
+          <li><a href="https://github.com/PaulKinlan/audio-only-browser">Source on GitHub</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main id="content" tabindex="-1">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Audio-first browsing research</p>
+          <h1 id="hero-title">Browse by intent.<br><span>Keep control local.</span></h1>
+          <p class="lede">A local Deno controller turns a page into a compact semantic snapshot, matches a natural-language request to a real control, and drives an allowlisted Chrome session over CDP.</p>
+          <div class="actions">
+            <a class="button primary" id="try-static-sample" href="./sample/index.html">Try the static sample journey <span aria-hidden="true">→</span></a>
+            <a class="button secondary" href="https://github.com/PaulKinlan/audio-only-browser#run-locally">Run the controller locally</a>
+          </div>
+          <p class="hero-note"><span aria-hidden="true">●</span> The sample above is static. It demonstrates the pages and controls, not the audio controller.</p>
+        </div>
+        <div class="signal-card" aria-label="Illustration of a request moving through the local controller">
+          <div class="signal-topline"><span>Intent</span><span class="local-pill">Local only</span></div>
+          <p class="intent">“Read the featured essay”</p>
+          <div class="wave" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <ol class="signal-flow">
+            <li><span>01</span><strong>Understand</strong><small>semantic snapshot</small></li>
+            <li><span>02</span><strong>Resolve</strong><small>matching link</small></li>
+            <li><span>03</span><strong>Act</strong><small>real Chrome</small></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="boundary" id="boundary" aria-labelledby="boundary-title">
+        <div class="boundary-heading">
+          <p class="eyebrow">An honest deployment boundary</p>
+          <h2 id="boundary-title">GitHub Pages shows the work.<br>It does not run the browser.</h2>
+        </div>
+        <div class="boundary-copy">
+          <p>The working prototype requires a Deno process, a Chrome binary, loopback-only endpoints, and Chrome DevTools Protocol access. A static host provides none of those things, so this public surface makes no controller or loopback requests.</p>
+          <p>Run the repository locally for intent resolution, narration, voice seams, and live browser control. Use this site to inspect the curated journey and the reviewed browser evidence.</p>
+        </div>
+      </section>
+
+      <section class="architecture" aria-labelledby="architecture-title">
+        <div class="section-heading">
+          <p class="eyebrow">What runs where</p>
+          <h2 id="architecture-title">Two surfaces, one clear line</h2>
+        </div>
+        <div class="architecture-grid">
+          <article>
+            <p class="step">Public / static</p>
+            <h3>This GitHub Pages site</h3>
+            <ul>
+              <li>Project overview and source links</li>
+              <li>Curated static sample pages</li>
+              <li>Seven reviewed evidence images</li>
+            </ul>
+          </article>
+          <div class="boundary-line" aria-hidden="true"><span>Boundary</span></div>
+          <article class="local-card">
+            <p class="step">Private to your machine</p>
+            <h3>The local controller</h3>
+            <ul>
+              <li>Loopback Deno API and frontend</li>
+              <li>Allowlisted navigation in real Chrome</li>
+              <li>CDP actions, snapshots, and narration</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="journey" aria-labelledby="journey-title">
+        <div class="section-heading">
+          <p class="eyebrow">A deterministic sample</p>
+          <h2 id="journey-title">Follow the same observable journey</h2>
+          <p>The static copy comes from the repository’s tracked sample site. Every extra interaction is labelled demo-only.</p>
+        </div>
+        <ol class="journey-list">
+          <li><span>1</span><div><h3>Open a real link</h3><p>Navigate through a curated mapping of Paul Kinlan’s AI Focus essay.</p></div></li>
+          <li><span>2</span><div><h3>Reveal a DOM update</h3><p>Use the clearly labelled demo button and see delayed content appear.</p></div></li>
+          <li><span>3</span><div><h3>Complete a demo form</h3><p>Submit a synthetic address to a local confirmation page. Nothing is sent or stored.</p></div></li>
+        </ol>
+        <a class="text-link" href="./sample/index.html">Start the static journey <span aria-hidden="true">→</span></a>
+      </section>
+
+      <section class="sources" aria-labelledby="sources-title">
+        <div class="section-heading">
+          <p class="eyebrow">Curated from public work</p>
+          <h2 id="sources-title">Read the live sources</h2>
+        </div>
+        <div class="source-grid">
+          <a href="https://aifoc.us/">
+            <span>AI Focus</span>
+            <strong>Essays and projects about AI and the web</strong>
+            <small>aifoc.us <b aria-hidden="true">↗</b></small>
+          </a>
+          <a href="https://aifoc.us/how-might-a-modern-lighthouse-work-with-llms/">
+            <span>Featured essay</span>
+            <strong>How might a modern Lighthouse work with LLMs?</strong>
+            <small>aifoc.us <b aria-hidden="true">↗</b></small>
+          </a>
+          <a href="https://paul.kinlan.me/">
+            <span>Paul Kinlan</span>
+            <strong>Writing on Chrome, the open web, and developer tools</strong>
+            <small>paul.kinlan.me <b aria-hidden="true">↗</b></small>
+          </a>
+        </div>
+      </section>
+
+      <section class="evidence" id="evidence" aria-labelledby="evidence-title">
+        <div class="section-heading">
+          <p class="eyebrow">Browser-driven proof</p>
+          <h2 id="evidence-title">Seven reviewed frames from the real local controller</h2>
+          <p>Captured by the integration journey in a real Chrome session. These are evidence of the local prototype—not a claim that it runs on this static page.</p>
+        </div>
+        <div class="evidence-grid">
+          <figure>
+            <img src="./evidence/01-dom-before.png" alt="AI Focus sample before the demo-only details are revealed" width="1000" height="760" loading="lazy">
+            <figcaption><span>01</span> DOM update — before</figcaption>
+          </figure>
+          <figure>
+            <img src="./evidence/02-dom-after.png" alt="AI Focus sample after featured essay details appear" width="1000" height="760" loading="lazy">
+            <figcaption><span>02</span> DOM update — after</figcaption>
+          </figure>
+          <figure>
+            <img src="./evidence/03-navigation-after.png" alt="Curated modern Lighthouse essay after link navigation" width="1000" height="760" loading="lazy">
+            <figcaption><span>03</span> Link navigation</figcaption>
+          </figure>
+          <figure>
+            <img src="./evidence/04-form-before.png" alt="Demo-only email form before submission" width="1000" height="760" loading="lazy">
+            <figcaption><span>04</span> Form — before</figcaption>
+          </figure>
+          <figure>
+            <img src="./evidence/05-form-after.png" alt="Demo-only confirmation page after form submission" width="1000" height="760" loading="lazy">
+            <figcaption><span>05</span> Form — after</figcaption>
+          </figure>
+          <figure>
+            <img src="./evidence/06-voice-before.png" alt="Audio-Only Browser interface before a mocked speech recognition action" width="985" height="773" loading="lazy">
+            <figcaption><span>06</span> Voice seam — before</figcaption>
+          </figure>
+          <figure>
+            <img src="./evidence/07-voice-after.png" alt="Audio-Only Browser interface after a mocked speech recognition action navigates" width="985" height="791" loading="lazy">
+            <figcaption><span>07</span> Voice seam — after</figcaption>
+          </figure>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>
+        <strong>Audio-Only Browser</strong>
+        <p>A research prototype by <a href="https://paul.kinlan.me/">Paul Kinlan</a>.</p>
+      </div>
+      <p><a href="https://github.com/PaulKinlan/audio-only-browser">View source and local setup on GitHub <span aria-hidden="true">↗</span></a></p>
+    </footer>
+  </body>
+</html>

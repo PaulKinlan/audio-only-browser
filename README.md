@@ -132,6 +132,28 @@ runtime response or log artifacts into the repository. Local `*.log` and
 `intent.json`, `session.json` and `updates.json` runtime captures under the
 frontend, server and sample directories are ignored without being deleted.
 
+## GitHub Pages surface
+
+`docs/` is a deterministic, static project surface: a project landing page, an
+exact copy of the four tracked sample pages, and the seven reviewed controller
+evidence images. It is deliberately not a hosted version of the controller and
+makes no requests to a local runtime.
+
+```sh
+deno task pages:build
+deno task test:pages
+```
+
+The Pages acceptance starts a real Chrome session over CDP at the repository
+subpath, clicks through the landing, delayed DOM reveal, real sample links, and
+demo form confirmation, and fails on browser errors or 404s. Its committed
+landing screenshot is [`08-pages-subpath.png`](evidence/08-pages-subpath.png);
+regenerate it with `UPDATE_PAGES_EVIDENCE=1 deno task test:pages`.
+
+For GitHub Pages, the recommended source is **Deploy from a branch**, using the
+publishing branch and the **`/docs` folder**. The build is committed so Pages
+does not need a server-side build step.
+
 ## Deployment note
 
 The functional demo requires Deno plus a Chrome binary. It cannot run as a

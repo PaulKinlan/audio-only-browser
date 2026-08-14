@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "pages:build": "deno run --allow-read --allow-write scripts/build_pages.ts",
+    "test:pages": "deno task pages:build && deno test -A tests/pages_acceptance_test.ts"
+  },
+  "fmt": {
+    "lineWidth": 88
+  }
+}

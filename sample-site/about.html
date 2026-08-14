@@ -4,24 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description"
-      content="About the team building the Audio Trailhead demonstration.">
-    <title>About the Audio Trailhead</title>
+      content="Curated author context from Paul Kinlan's sites plus a clearly labelled local form demo.">
+    <title>About Paul Kinlan and AI Focus — local snapshot</title>
   </head>
   <body>
     <main>
-      <h1>About the Audio Trailhead</h1>
-      <p>We are exploring audio-first navigation that understands a person's goal instead of reading every DOM node.</p>
-      <form action="subscribed.html" method="get"
-        aria-label="Trailhead newsletter">
-        <fieldset>
-          <legend>Get journey updates</legend>
-          <label for="newsletter-email">Email address</label>
-          <input id="newsletter-email" type="email" name="email"
-            autocomplete="email" required>
-          <button type="submit">Sign up for updates</button>
-        </fieldset>
-      </form>
-      <p><a href="index.html">Return to the trailhead</a></p>
+      <p><strong>Local snapshot:</strong> curated on
+        <time datetime="2026-08-14">14 August 2026</time> from
+        <code>https://aifoc.us/</code> and <code>https://paul.kinlan.me/</code>.</p>
+      <h1>About Paul Kinlan and AI Focus</h1>
+      <p>Paul Kinlan leads the Chrome and Open Web Developer Relations team at
+        Google and explores the intersection of modern web design and
+        future-facing technologies.</p>
+      <p>AI Focus is his collection of essays and projects developing an opinion
+        on how AI is changing the medium of the web and web development.</p>
+
+      <section aria-labelledby="local-form-title">
+        <h2 id="local-form-title">Local form journey</h2>
+        <p><strong>Demo-only controls:</strong> this email field and submit button
+          are a minimal local test of form intent handling. They do not subscribe
+          anyone, store the address, or send it to aifoc.us or its newsletter.</p>
+        <form action="subscribed.html" method="get"
+          aria-label="Demo-only local email form">
+          <fieldset>
+            <legend>Try the local form journey</legend>
+            <label for="demo-email">Demo email address</label>
+            <input id="demo-email" type="email" name="email"
+              autocomplete="off" required>
+            <button type="submit">Complete local form demo</button>
+          </fieldset>
+        </form>
+      </section>
+      <p><a href="index.html">Return to the AI Focus snapshot</a></p>
     </main>
   </body>
 </html>

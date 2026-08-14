@@ -42,6 +42,97 @@ type ChromeTarget = {
   webSocketDebuggerUrl?: string;
 };
 
+type DocumentState = {
+  frameId: string;
+  loaderId: string;
+  url: string;
+};
+
+type FrameTreeResponse = {
+  frameTree: {
+    frame: {
+      id: string;
+      loaderId: string;
+      url: string;
+    };
+  };
+};
+
+type PageNavigateResult = {
+  errorText?: string;
+  frameId: string;
+  loaderId?: string;
+};
+
+type AudioBrowserOptions = {
+  allowedTargetOrigins?: string[];
+};
+
+class HttpError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+function normalizeAllowedOrigin(value: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Invalid allowed target origin: ${value}`);
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`Allowed target origins must use HTTP(S): ${value}`);
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error(
+      `Allowed target origins cannot contain credentials: ${value}`,
+    );
+  }
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error(`Configure an origin without a path: ${value}`);
+  }
+  return parsed.origin;
+}
+
+function configuredTargetOrigins() {
+  const sampleOrigin = Deno.env.get("SAMPLE_ORIGIN") ||
+    "http://127.0.0.1:9001";
+  const additional = (Deno.env.get("ALLOWED_TARGET_ORIGINS") || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return [sampleOrigin, ...additional];
+}
+
+export function validateTargetUrl(
+  targetUrl: unknown,
+  allowedOrigins: Set<string>,
+) {
+  if (typeof targetUrl !== "string" || !targetUrl.trim()) {
+    throw new HttpError("A target URL is required", 400);
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(targetUrl);
+  } catch {
+    throw new HttpError("The target URL is invalid", 400);
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new HttpError("Only HTTP(S) pages can be browsed", 400);
+  }
+  if (parsed.username || parsed.password) {
+    throw new HttpError("Target URLs cannot contain credentials", 400);
+  }
+  if (!allowedOrigins.has(parsed.origin)) {
+    throw new HttpError(
+      `Target origin is not allowed: ${parsed.origin}`,
+      403,
+    );
+  }
+  return parsed;
+}
+
 const semanticSnapshotExpression = String.raw`(() => {
     const clean = value => String(value || "").replace(/\s+/g, " ").trim();
     const visible = element => {
@@ -147,10 +238,15 @@ const mutationObserverExpression = String.raw`(() => {
     else start();
 })()`;
 
-function intentResolverExpression(action: string) {
+function intentResolverExpression(action: string, allowedOrigins: string[]) {
   return String.raw`(() => {
         const action = ${JSON.stringify(action)};
+        const allowedOrigins = new Set(${JSON.stringify(allowedOrigins)});
         const clean = value => String(value || "").toLowerCase().replace(/[^a-z0-9@._+-]+/g, " ").trim();
+        const allowedDestination = value => {
+            try { return allowedOrigins.has(new URL(value, location.href).origin); }
+            catch { return false; }
+        };
         const stop = new Set(["a","an","the","please","could","would","want","to","go","open","click","press","follow","take","me","on","in","for","field"]);
         const words = value => clean(value).split(/\s+/).filter(word => word && !stop.has(word));
         const actionWords = words(action);
@@ -207,6 +303,9 @@ function intentResolverExpression(action: string) {
         const wantsSubmit = /\b(submit|send|sign\s*up|subscribe|continue|finish)\b/i.test(action);
         if (input && wantsSubmit) {
             const form = input.form;
+            if (form && !allowedDestination(form.action || location.href)) {
+                return { status: "unresolved", effects: [], message: "That form submits outside the configured browsing origins." };
+            }
             const submit = form?.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
             if (submit && visible(submit)) {
                 effects.push("Activated " + describe(submit));
@@ -222,7 +321,9 @@ function intentResolverExpression(action: string) {
         if (input && effects.length) {
             return { status: "acted", effects, target: describe(input), kind: "form-input", mayNavigate: false };
         }
-        const candidates = Array.from(document.querySelectorAll("a[href], button, [role=link], [role=button], input[type=submit]")).filter(visible);
+        const candidates = Array.from(document.querySelectorAll("a[href], button, [role=link], [role=button], input[type=submit]"))
+            .filter(visible)
+            .filter(element => element.tagName !== "A" || allowedDestination(element.href));
         const ranked = candidates.map(element => ({ element, score: score(element) })).sort((a,b) => b.score - a.score);
         if (!ranked.length || ranked[0].score <= 0) {
             return { status: "unresolved", effects: [], message: "I could not match that request to an available action." };
@@ -243,6 +344,16 @@ export class AudioBrowser {
   private chromeProc: Deno.ChildProcess | null = null;
   private updates: string[] = [];
   private chromeProfile = "";
+  private allowedTargetOrigins: Set<string>;
+  private domContentLoadedLoaders = new Set<string>();
+
+  constructor(options: AudioBrowserOptions = {}) {
+    const origins = options.allowedTargetOrigins ?? configuredTargetOrigins();
+    this.allowedTargetOrigins = new Set(origins.map(normalizeAllowedOrigin));
+    if (!this.allowedTargetOrigins.size) {
+      throw new Error("At least one allowed target origin is required");
+    }
+  }
 
   async launch() {
     const executable = Deno.env.get("CHROME_BIN") || "google-chrome-stable";
@@ -286,7 +397,23 @@ export class AudioBrowser {
       this.cdp.send("Page.enable"),
       this.cdp.send("DOM.enable"),
       this.cdp.send("Runtime.enable"),
+      this.cdp.send("Page.setLifecycleEventsEnabled", { enabled: true }),
+      this.cdp.send("Fetch.enable", {
+        patterns: [{ resourceType: "Document", requestStage: "Request" }],
+      }),
     ]);
+    this.cdp.on<{ loaderId: string; name: string }>(
+      "Page.lifecycleEvent",
+      (event) => {
+        if (event.name === "DOMContentLoaded") {
+          this.domContentLoadedLoaders.add(event.loaderId);
+        }
+      },
+    );
+    this.cdp.on<{ requestId: string; request: { url: string } }>(
+      "Fetch.requestPaused",
+      (event) => void this.continueAllowedDocumentRequest(event),
+    );
     await this.cdp.send("Runtime.addBinding", { name: "audioBrowserMutation" });
     await this.cdp.send("Page.addScriptToEvaluateOnNewDocument", {
       source: mutationObserverExpression,
@@ -325,18 +452,16 @@ export class AudioBrowser {
     }
   }
 
-  async navigate(targetUrl: string) {
-    const parsed = new URL(targetUrl);
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      throw new Error("Only HTTP(S) pages can be browsed");
-    }
+  async navigate(targetUrl: unknown) {
+    const parsed = validateTargetUrl(targetUrl, this.allowedTargetOrigins);
+    const previousDocument = await this.currentDocument();
     this.updates = [];
-    const result = await this.cdp.send<{ errorText?: string }>(
+    const result = await this.cdp.send<PageNavigateResult>(
       "Page.navigate",
       { url: parsed.href },
     );
     if (result.errorText) throw new Error(result.errorText);
-    await this.waitForReady(5_000);
+    await this.waitForNewDocument(previousDocument, 8_000, result.loaderId);
     await this.cdp.send("Runtime.evaluate", {
       expression: mutationObserverExpression,
     });
@@ -363,18 +488,25 @@ export class AudioBrowser {
   }
 
   async resolveIntent(action: string) {
+    const previousDocument = await this.currentDocument();
     const response = await this.cdp.send<RuntimeEvaluation<IntentResolution>>(
       "Runtime.evaluate",
       {
-        expression: intentResolverExpression(action),
+        expression: intentResolverExpression(
+          action,
+          [...this.allowedTargetOrigins],
+        ),
         returnByValue: true,
         awaitPromise: true,
       },
     );
     const resolution = response.result?.value;
     if (!resolution || resolution.status === "unresolved") return resolution;
-    if (resolution.mayNavigate) await this.waitForReady(5_000);
-    else await delay(120);
+    if (resolution.mayNavigate) {
+      await this.waitForNewDocument(previousDocument, 8_000);
+    } else {
+      await delay(120);
+    }
     return resolution;
   }
 
@@ -384,35 +516,69 @@ export class AudioBrowser {
     return updates;
   }
 
-  private async waitForReady(timeoutMs: number) {
+  private async continueAllowedDocumentRequest(
+    event: { requestId: string; request: { url: string } },
+  ) {
+    try {
+      validateTargetUrl(event.request.url, this.allowedTargetOrigins);
+      await this.cdp.send("Fetch.continueRequest", {
+        requestId: event.requestId,
+      });
+    } catch {
+      await this.cdp.send("Fetch.failRequest", {
+        requestId: event.requestId,
+        errorReason: "BlockedByClient",
+      }).catch(() => {});
+    }
+  }
+
+  private async currentDocument(): Promise<DocumentState> {
+    const response = await this.cdp.send<FrameTreeResponse>(
+      "Page.getFrameTree",
+    );
+    const frame = response.frameTree.frame;
+    return {
+      frameId: frame.id,
+      loaderId: frame.loaderId,
+      url: frame.url,
+    };
+  }
+
+  private async waitForNewDocument(
+    previous: DocumentState,
+    timeoutMs: number,
+    expectedLoaderId?: string,
+  ) {
     const deadline = Date.now() + timeoutMs;
-    let stableUrl = "";
-    let stableCount = 0;
     while (Date.now() < deadline) {
       try {
-        const response = await this.cdp.send<
-          RuntimeEvaluation<{ ready: string; url: string }>
-        >("Runtime.evaluate", {
-          expression: `({ ready: document.readyState, url: location.href })`,
-          returnByValue: true,
-        }, 1_000);
-        const state = response.result?.value;
-        if (
-          state && (state.ready === "interactive" || state.ready === "complete")
-        ) {
-          stableCount = state.url === stableUrl ? stableCount + 1 : 0;
-          stableUrl = state.url;
-          if (stableCount >= 2) {
-            await delay(100);
-            return;
-          }
+        const document = await this.currentDocument();
+        const changed = document.loaderId !== previous.loaderId ||
+          document.url !== previous.url;
+        const expectedDocument = expectedLoaderId
+          ? document.loaderId === expectedLoaderId
+          : changed;
+        if (changed && expectedDocument) {
+          const response = await this.cdp.send<
+            RuntimeEvaluation<{ ready: string; url: string }>
+          >("Runtime.evaluate", {
+            expression: `({ ready: document.readyState, url: location.href })`,
+            returnByValue: true,
+          }, 1_000);
+          const state = response.result?.value;
+          const ready = state && state.url === document.url &&
+            (state.ready === "interactive" || state.ready === "complete");
+          const domContentLoaded = this.domContentLoadedLoaders.has(
+            document.loaderId,
+          );
+          if (ready && domContentLoaded) return;
         }
       } catch {
-        // Navigation can temporarily destroy the execution context.
+        // A navigation can temporarily destroy the execution context.
       }
-      await delay(75);
+      await delay(50);
     }
-    throw new Error("Timed out waiting for the page to become ready");
+    throw new Error("Timed out waiting for a new page document");
   }
 }
 
@@ -442,11 +608,29 @@ function nextStepNarration(snapshot: SemanticSnapshot) {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+}
+
+const frontendFiles = new Map([
+  ["/", ["index.html", "text/html; charset=utf-8"]],
+  ["/index.html", ["index.html", "text/html; charset=utf-8"]],
+  ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/style.css", ["style.css", "text/css; charset=utf-8"]],
+]);
+
+async function frontendResponse(pathname: string) {
+  const file = frontendFiles.get(pathname);
+  if (!file) return null;
+  const [name, contentType] = file;
+  const body = await Deno.readFile(
+    new URL(`../frontend/${name}`, import.meta.url),
+  );
+  return new Response(body, {
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Content-Type": contentType,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
@@ -454,17 +638,18 @@ function json(body: unknown, status = 200) {
 export function createHandler(browser: AudioBrowser) {
   return async (request: Request) => {
     const url = new URL(request.url);
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
+    const requestOrigin = request.headers.get("Origin");
+    if (requestOrigin && requestOrigin !== url.origin) {
+      return json(
+        { error: "Requests must come from the same-origin frontend" },
+        403,
+      );
     }
     try {
+      if (request.method === "GET") {
+        const frontend = await frontendResponse(url.pathname);
+        if (frontend) return frontend;
+      }
       if (url.pathname === "/health" && request.method === "GET") {
         return json({ ok: true });
       }
@@ -504,10 +689,11 @@ export function createHandler(browser: AudioBrowser) {
       }
       return json({ error: "Not found" }, 404);
     } catch (error) {
-      console.error(error);
+      const status = error instanceof HttpError ? error.status : 500;
+      if (status === 500) console.error(error);
       return json({
         error: error instanceof Error ? error.message : "Unexpected error",
-      }, 500);
+      }, status);
     }
   };
 }
@@ -521,9 +707,10 @@ if (import.meta.main) {
   await browser.launch();
   const port = Number(Deno.env.get("PORT") || "9090");
   const server = Deno.serve({
+    hostname: "127.0.0.1",
     port,
     onListen: ({ port }) =>
-      console.log(`Audio browser listening on http://localhost:${port}`),
+      console.log(`Audio browser listening on http://127.0.0.1:${port}`),
   }, createHandler(browser));
   let shuttingDown = false;
   const signals = ["SIGINT", "SIGTERM"] as const;

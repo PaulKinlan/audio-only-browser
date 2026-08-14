@@ -4,19 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description"
-      content="A short article about intent-driven web navigation.">
-    <title>Intent-driven Browsing</title>
+      content="A curated local snapshot of Paul Kinlan's essay about Lighthouse and large language models.">
+    <title>How might a modern Lighthouse work with large language models?</title>
   </head>
   <body>
     <article>
-      <h1>The Future of Browsing</h1>
-      <p>Voice-driven interfaces make hands-free navigation possible. An intent-driven browser can summarize useful next steps and operate the page through a real browser session.</p>
-      <h2>Keep people oriented</h2>
-      <p>After every action, a concise description should say where the user is and what they can do next.</p>
+      <p><strong>Local snapshot:</strong> a shortened, curated mapping of
+        <code>https://aifoc.us/how-might-a-modern-lighthouse-work-with-llms/</code>,
+        captured on <time datetime="2026-08-14">14 August 2026</time>.</p>
+      <h1>How might a modern Lighthouse work with large language models?</h1>
+      <p>Published by Paul Kinlan on <time datetime="2026-07-03">3 July 2026</time>;
+        reading time on the source: 18 minutes.</p>
+      <p>Lighthouse is one of the most successful developer tools we've shipped,
+        but its ability to help the developer ecosystem is capped by the number
+        of tests people can encode.</p>
+      <p>The essay asks: what if an audit were a sentence? A person could describe
+        in plain English what good looks like and let a model work out how to
+        check it.</p>
+      <h2>The loop</h2>
+      <p>The described web-uplift loop explores important pages and flows, judges
+        them against principles, fixes source when it is available, and then
+        re-audits. Its evidence primitives use the Chrome DevTools Protocol to
+        gather material such as screenshots, traces, DOM data and heap snapshots.</p>
+      <p>The central argument is to write the quality bar and evals rather than
+        hand-code every audit, while still having a human inspect model-produced
+        edits.</p>
     </article>
-    <nav aria-label="Continue sample journey">
-      <a href="about.html">Meet the Audio Trailhead team</a>
-      <a href="index.html">Return to the trailhead</a>
+    <nav aria-label="Continue curated journey">
+      <a href="about.html">Read about Paul Kinlan and AI Focus</a>
+      <a href="index.html">Return to the AI Focus snapshot</a>
     </nav>
   </body>
 </html>

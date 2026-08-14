@@ -4,34 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description"
-      content="A multi-page demonstration journey for the audio-only browser.">
-    <title>Audio Trailhead</title>
+      content="A dated local, curated snapshot of AI Focus content for the audio-only browser journey.">
+    <title>AI Focus — local snapshot</title>
   </head>
   <body>
     <header>
-      <h1>Welcome to the Audio Trailhead</h1>
-      <p>This small site demonstrates links, buttons, live page updates and a form.</p>
+      <h1>AI Focus</h1>
+      <p><strong>Local snapshot:</strong> curated from Paul Kinlan's
+        <code>https://aifoc.us/</code> on <time datetime="2026-08-14">14 August 2026</time>.
+        Local links map selected source content into a repeatable offline journey;
+        this is not the live site.</p>
+      <p>Hello, I'm Paul Kinlan, a Developer Advocate on Chrome and a Web
+        Developer. AI Focus collects essays and projects about how AI is changing
+        the medium of the web and web development.</p>
     </header>
     <main>
-      <nav aria-label="Sample journey">
+      <nav aria-label="Curated AI Focus journey">
         <ul>
-          <li><a href="article.html">Read the article about web development</a></li>
-          <li><a href="about.html">Learn about the Audio Trailhead team</a></li>
+          <li><a href="article.html">Read how a modern Lighthouse might work with large language models</a></li>
+          <li><a href="about.html">Read about Paul Kinlan and AI Focus</a></li>
         </ul>
       </nav>
-      <section aria-labelledby="discussion-title">
-        <h2 id="discussion-title">Discussion</h2>
-        <button id="load-comments" type="button">Load comments</button>
-        <div id="comments-section" aria-live="polite"></div>
+      <section aria-labelledby="snapshot-context-title">
+        <h2 id="snapshot-context-title">Snapshot context</h2>
+        <p><strong>Demo-only control:</strong> the following button was added only
+          to exercise a delayed DOM update. It is not a control copied from
+          aifoc.us.</p>
+        <button id="reveal-context" type="button">Reveal featured essay details</button>
+        <div id="snapshot-context" aria-live="polite"></div>
       </section>
     </main>
     <script>
-    document.getElementById("load-comments").addEventListener("click", (event) => {
+    document.getElementById("reveal-context").addEventListener("click", (event) => {
       event.currentTarget.disabled = true;
       setTimeout(() => {
-        const comments = document.getElementById("comments-section");
-        comments.innerHTML =
-          "<h3>Latest comments</h3><p>Jamie: Voice navigation made this journey easy.</p>";
+        document.getElementById("snapshot-context").innerHTML =
+          "<h3>Featured essay details</h3><p>The captured homepage featured Paul Kinlan's 3 July 2026 essay, with an 18 minute reading time.</p>";
       }, 300);
     });
     </script>

@@ -3,7 +3,6 @@ import { AudioBrowser, createHandler } from "../server/main.ts";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const SAMPLE_PORT = 18_901;
-const FRONTEND_PORT = 18_900;
 const API_PORT = 18_909;
 const BACKEND_DEBUG_PORT = 18_922;
 const UI_DEBUG_PORT = 18_923;
@@ -21,13 +20,46 @@ function assertIncludes(value: string, expected: string, label: string) {
   );
 }
 
-function staticServer(directory: string, port: number) {
-  return new Deno.Command("python3", {
-    args: ["-m", "http.server", String(port), "--bind", "127.0.0.1"],
-    cwd: directory,
-    stdout: "null",
-    stderr: "null",
-  }).spawn();
+const TEST_NAVIGATION_START = `<!doctype html>
+  <title>Navigation readiness fixture</title>
+  <h1>Navigation readiness fixture</h1>
+  <a href="/delayed-destination.html">Open delayed destination</a>`;
+
+const TEST_DELAYED_DESTINATION = `<!doctype html>
+  <title>Delayed destination ready</title>
+  <h1>Delayed destination ready</h1>`;
+
+function startSampleServer() {
+  return Deno.serve({
+    hostname: "127.0.0.1",
+    port: SAMPLE_PORT,
+    onListen: () => {},
+  }, async (request) => {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === "/navigation-readiness.html") {
+      return new Response(TEST_NAVIGATION_START, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+    if (pathname === "/delayed-destination.html") {
+      await delay(650);
+      return new Response(TEST_DELAYED_DESTINATION, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+    const name = pathname === "/" ? "index.html" : pathname.slice(1);
+    if (
+      !["index.html", "article.html", "about.html", "subscribed.html"].includes(
+        name,
+      )
+    ) {
+      return new Response("Not found", { status: 404 });
+    }
+    return new Response(
+      await Deno.readFile(`${ROOT}sample-site/${name}`),
+      { headers: { "Content-Type": "text/html; charset=utf-8" } },
+    );
+  });
 }
 
 async function waitForUrl(url: string, timeoutMs = 8_000) {
@@ -152,19 +184,16 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const sampleServer = staticServer(`${ROOT}sample-site`, SAMPLE_PORT);
-    const frontendServer = staticServer(`${ROOT}frontend`, FRONTEND_PORT);
+    const sampleServer = startSampleServer();
     const previousDebugPort = Deno.env.get("CHROME_DEBUG_PORT");
     Deno.env.set("CHROME_DEBUG_PORT", String(BACKEND_DEBUG_PORT));
-    const browser = new AudioBrowser();
+    const sampleOrigin = `http://127.0.0.1:${SAMPLE_PORT}`;
+    const browser = new AudioBrowser({ allowedTargetOrigins: [sampleOrigin] });
     let apiServer: Deno.HttpServer | undefined;
     let uiChrome: Awaited<ReturnType<typeof launchUiChrome>> | undefined;
 
     try {
-      await Promise.all([
-        waitForUrl(`http://127.0.0.1:${SAMPLE_PORT}/index.html`),
-        waitForUrl(`http://127.0.0.1:${FRONTEND_PORT}/index.html`),
-      ]);
+      await waitForUrl(`${sampleOrigin}/index.html`);
       await browser.launch();
       apiServer = Deno.serve({
         hostname: "127.0.0.1",
@@ -172,12 +201,65 @@ Deno.test({
         onListen: () => {},
       }, createHandler(browser));
 
+      const frontendResponse = await fetch(
+        `http://127.0.0.1:${API_PORT}/index.html`,
+      );
+      assert(frontendResponse.ok, "API server should serve the frontend");
+      assertIncludes(
+        await frontendResponse.text(),
+        "Audio-Only Browser",
+        "same-origin frontend",
+      );
+
+      const crossOriginResponse = await fetch(
+        `http://127.0.0.1:${API_PORT}/health`,
+        { headers: { Origin: "http://attacker.example" } },
+      );
+      assert(
+        crossOriginResponse.status === 403,
+        "cross-origin control requests should be rejected",
+      );
+      assert(
+        !crossOriginResponse.headers.has("Access-Control-Allow-Origin"),
+        "API responses should not include wildcard CORS",
+      );
+
+      const disallowedTarget = await fetch(
+        `http://127.0.0.1:${API_PORT}/session`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUrl: "http://example.com/" }),
+        },
+      );
+      assert(
+        disallowedTarget.status === 403,
+        "session targets outside the configured origins should be rejected",
+      );
+
+      await api("/session", {
+        targetUrl: `${sampleOrigin}/navigation-readiness.html`,
+      });
+      const delayedStart = performance.now();
+      const delayedNavigation = await api("/intent", {
+        action: "open the delayed destination",
+      });
+      const delayedElapsed = performance.now() - delayedStart;
+      assert(
+        delayedElapsed >= 550,
+        `CDP intent returned before delayed navigation committed (${delayedElapsed}ms)`,
+      );
+      assert(
+        delayedNavigation.snapshot.title === "Delayed destination ready",
+        "CDP readiness should snapshot the new delayed document, not the old page",
+      );
+
       const session = await api("/session", {
-        targetUrl: `http://127.0.0.1:${SAMPLE_PORT}/index.html`,
+        targetUrl: `${sampleOrigin}/index.html`,
       });
       assert(
-        session.snapshot.headings[0].text === "Welcome to the Audio Trailhead",
-        "semantic snapshot should include the main heading",
+        session.snapshot.headings[0].text === "AI Focus",
+        "semantic snapshot should include the real snapshot heading",
       );
       assert(
         session.snapshot.landmarks.some((item: { role: string }) =>
@@ -187,20 +269,24 @@ Deno.test({
       );
       assert(
         session.snapshot.controls.some((item: { role: string; name: string }) =>
-          item.role === "link" && item.name.includes("web development")
+          item.role === "link" && item.name.includes("modern Lighthouse")
         ),
         "semantic snapshot should include named links",
       );
       assertIncludes(session.narration, "Next steps", "session narration");
 
       const button = await api("/intent", {
-        action: "please load the comments",
+        action: "reveal the featured essay details",
       });
       assert(
         button.resolution.kind === "button",
         "natural-language button intent should activate a button",
       );
-      assertIncludes(button.result, "Load comments", "button effect");
+      assertIncludes(
+        button.result,
+        "Reveal featured essay details",
+        "button effect",
+      );
       assertIncludes(
         button.nextStep,
         "Next steps",
@@ -210,7 +296,7 @@ Deno.test({
       const updates = await api("/updates");
       assert(
         updates.updates.some((update: string) =>
-          update.includes("Jamie: Voice navigation")
+          update.includes("featured Paul Kinlan")
         ),
         `expected concise added-content update, got ${
           JSON.stringify(updates.updates)
@@ -218,7 +304,8 @@ Deno.test({
       );
 
       const article = await api("/intent", {
-        action: "I would like to read the article about web development",
+        action:
+          "read how a modern Lighthouse might work with large language models",
       });
       assert(
         article.resolution.kind === "link",
@@ -230,29 +317,30 @@ Deno.test({
         "article navigation URL",
       );
       assert(
-        article.snapshot.title === "Intent-driven Browsing",
+        article.snapshot.title ===
+          "How might a modern Lighthouse work with large language models?",
         "link click should navigate the real browser",
       );
       assertIncludes(
         article.nextStep,
-        "Meet the Audio Trailhead team",
+        "Read about Paul Kinlan and AI Focus",
         "article next steps",
       );
 
       const about = await api("/intent", {
-        action: "meet the audio trailhead team",
+        action: "read about Paul Kinlan and AI Focus",
       });
       assertIncludes(about.snapshot.url, "/about.html", "about navigation URL");
       assert(
         about.snapshot.forms[0].controls.some((name: string) =>
-          name.includes("Email address")
+          name.includes("Demo email address")
         ),
         "semantic snapshot should describe form controls",
       );
 
       const submitted = await api("/intent", {
         action:
-          "enter listener@example.com in the email field and sign up for updates",
+          "enter listener@example.com in the demo email field and submit the form",
       });
       assert(
         submitted.resolution.kind === "form-submit",
@@ -269,12 +357,12 @@ Deno.test({
         "submitted form URL",
       );
       assert(
-        submitted.snapshot.title === "Journey updates confirmed",
+        submitted.snapshot.title === "Local form demo complete",
         "form submission should navigate to confirmation",
       );
       assertIncludes(
         submitted.nextStep,
-        "Start the sample journey again",
+        "Return to the AI Focus snapshot",
         "confirmation next steps",
       );
 
@@ -297,10 +385,7 @@ Deno.test({
           }});
         `,
       });
-      const frontendUrl =
-        `http://127.0.0.1:${FRONTEND_PORT}/index.html?server=${
-          encodeURIComponent(`http://127.0.0.1:${API_PORT}`)
-        }`;
+      const frontendUrl = `http://127.0.0.1:${API_PORT}/index.html`;
       await uiChrome.cdp.send("Page.navigate", { url: frontendUrl });
       await waitForBrowser(
         uiChrome.cdp,
@@ -310,7 +395,7 @@ Deno.test({
         uiChrome.cdp,
         `
         document.querySelector('#target-url').value = ${
-          JSON.stringify(`http://127.0.0.1:${SAMPLE_PORT}/index.html`)
+          JSON.stringify(`${sampleOrigin}/index.html`)
         };
         document.querySelector('#start-session').click();
       `,
@@ -335,13 +420,13 @@ Deno.test({
       await evaluate(
         uiChrome.cdp,
         `
-        document.querySelector('#text-intent').value = 'read the article about web development';
+        document.querySelector('#text-intent').value = 'read how a modern Lighthouse might work with large language models';
         document.querySelector('#intent-form').requestSubmit();
       `,
       );
       await waitForBrowser(
         uiChrome.cdp,
-        "document.querySelector('#narration-display').textContent.includes('Intent-driven Browsing')",
+        "document.querySelector('#connection-status').textContent.startsWith('Now browsing How might a modern Lighthouse')",
       );
       const voiceEvidence = await evaluate<{
         calls: { recognition: string[]; synthesis: string[] };
@@ -357,7 +442,7 @@ Deno.test({
       );
       assertIncludes(
         voiceEvidence.transcript,
-        "read the article",
+        "read how a modern Lighthouse",
         "typed fallback transcript",
       );
       assert(
@@ -392,13 +477,7 @@ Deno.test({
       }
       if (apiServer) await apiServer.shutdown();
       await browser.close();
-      try {
-        sampleServer.kill("SIGTERM");
-      } catch { /* already stopped */ }
-      try {
-        frontendServer.kill("SIGTERM");
-      } catch { /* already stopped */ }
-      await Promise.all([sampleServer.status, frontendServer.status]);
+      await sampleServer.shutdown();
       if (previousDebugPort === undefined) Deno.env.delete("CHROME_DEBUG_PORT");
       else Deno.env.set("CHROME_DEBUG_PORT", previousDebugPort);
     }

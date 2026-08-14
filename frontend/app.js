@@ -11,8 +11,7 @@ const elements = {
   connectionStatus: document.getElementById("connection-status"),
 };
 
-const configuredServer = new URLSearchParams(location.search).get("server");
-const SERVER_URL = configuredServer || "http://localhost:9090";
+const SERVER_URL = location.origin;
 let pollingTimer;
 
 class WebSpeechVoiceIO {

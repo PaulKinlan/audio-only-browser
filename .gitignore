@@ -1,0 +1,15 @@
+# Local runtime logs
+frontend/*.log
+server/*.log
+sample-site/*.log
+
+# Local request/response captures
+frontend/intent.json
+frontend/session.json
+frontend/updates.json
+server/intent.json
+server/session.json
+server/updates.json
+sample-site/intent.json
+sample-site/session.json
+sample-site/updates.json

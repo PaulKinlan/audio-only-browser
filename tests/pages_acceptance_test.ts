@@ -139,16 +139,87 @@ async function waitForBrowser(
   throw new Error(`Browser condition timed out: ${expression}`);
 }
 
-async function click(cdp: CDPClient, selector: string) {
-  await evaluate(
+async function elementCenter(cdp: CDPClient, selector: string) {
+  return await evaluate<{ x: number; y: number }>(
     cdp,
     `(() => {
       const element = document.querySelector(${JSON.stringify(selector)});
-      if (!element) throw new Error("Missing click target: " + ${
+      if (!element) throw new Error("Missing pointer target: " + ${
       JSON.stringify(selector)
     });
-      element.click();
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      if (rect.width <= 0 || rect.height <= 0 || x < 0 || y < 0 ||
+          x > innerWidth || y > innerHeight) {
+        throw new Error("Pointer target is not visible: " + ${
+      JSON.stringify(selector)
+    });
+      }
+      const hit = document.elementFromPoint(x, y);
+      if (!hit || !(hit === element || element.contains(hit))) {
+        throw new Error("Pointer target is obscured: " + ${JSON.stringify(selector)});
+      }
+      return { x, y };
     })()`,
+  );
+}
+
+async function clickAt(cdp: CDPClient, selector: string) {
+  const { x, y } = await elementCenter(cdp, selector);
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x,
+    y,
+  });
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x,
+    y,
+    button: "left",
+    buttons: 1,
+    clickCount: 1,
+  });
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x,
+    y,
+    button: "left",
+    buttons: 0,
+    clickCount: 1,
+  });
+}
+
+async function typeAt(cdp: CDPClient, selector: string, text: string) {
+  await clickAt(cdp, selector);
+  for (const character of text) {
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "char",
+      text: character,
+      unmodifiedText: character,
+    });
+  }
+}
+
+async function assertAuthenticPageActions() {
+  const source = await Deno.readTextFile(new URL(import.meta.url));
+  const forbidden = [
+    { label: "element click", pattern: new RegExp("\\." + "click\\s*\\(") },
+    { label: "event dispatch", pattern: new RegExp("dispatch" + "Event\\s*\\(") },
+  ];
+  for (const shortcut of forbidden) {
+    assert(
+      !shortcut.pattern.test(source),
+      `Pages acceptance must not use DOM action shortcut: ${shortcut.label}`,
+    );
+  }
+  assert(
+    source.includes('cdp.send("Input.dispatchMouseEvent"'),
+    "Pages acceptance must dispatch real pointer input through CDP",
+  );
+  assert(
+    source.includes('cdp.send("Input.dispatchKeyEvent"'),
+    "Pages acceptance must dispatch real keyboard input through CDP",
   );
 }
 
@@ -243,6 +314,8 @@ Deno.test({
         ({ errorText, type }) => failedResponses.push(`${type}: ${errorText}`),
       );
 
+      await assertAuthenticPageActions();
+
       const landingUrl = `${origin}${PROJECT_PATH}`;
       await cdp.send("Page.navigate", { url: landingUrl });
       await waitForBrowser(
@@ -288,30 +361,26 @@ Deno.test({
       );
       await capturePagesEvidence(cdp);
 
-      await click(cdp, "#view-evidence");
+      await clickAt(cdp, "#view-evidence");
       await waitForBrowser(cdp, "location.hash === '#evidence'");
       assert(
         await evaluate(cdp, "document.querySelectorAll('#evidence img').length") === 7,
         "landing should publish exactly the seven reviewed controller images",
       );
-      await evaluate(
-        cdp,
-        "document.querySelectorAll('#evidence img').forEach(image => image.loading = 'eager')",
-      );
       await waitForBrowser(
         cdp,
-        "[...document.querySelectorAll('#evidence img')].every(image => image.complete && image.naturalWidth > 0)",
+        "[...document.querySelectorAll('#evidence img')].filter(image => image.getBoundingClientRect().top < innerHeight).every(image => image.complete && image.naturalWidth > 0)",
       );
 
       await cdp.send("Page.navigate", { url: landingUrl });
       await waitForBrowser(cdp, "document.readyState === 'complete'");
-      await click(cdp, "#try-static-sample");
+      await clickAt(cdp, "#try-static-sample");
       await waitForBrowser(
         cdp,
         "location.pathname.endsWith('/sample/index.html') && document.querySelector('h1')?.textContent === 'AI Focus'",
       );
 
-      await click(cdp, "#reveal-context");
+      await clickAt(cdp, "#reveal-context");
       await waitForBrowser(
         cdp,
         "document.querySelector('#snapshot-context')?.textContent.includes('18 minute reading time')",
@@ -322,22 +391,19 @@ Deno.test({
         "demo reveal should visibly update control state",
       );
 
-      await click(cdp, 'a[href="article.html"]');
+      await clickAt(cdp, 'a[href="article.html"]');
       await waitForBrowser(
         cdp,
         "location.pathname.endsWith('/sample/article.html') && document.title.startsWith('How might a modern Lighthouse')",
       );
-      await click(cdp, 'a[href="about.html"]');
+      await clickAt(cdp, 'a[href="about.html"]');
       await waitForBrowser(
         cdp,
         "location.pathname.endsWith('/sample/about.html') && document.querySelector('#demo-email')",
       );
 
-      await evaluate(
-        cdp,
-        `document.querySelector('#demo-email').value = 'pages-test@example.invalid'`,
-      );
-      await click(cdp, 'button[type="submit"]');
+      await typeAt(cdp, "#demo-email", "pages-test@example.invalid");
+      await clickAt(cdp, 'button[type="submit"]');
       await waitForBrowser(
         cdp,
         "location.pathname.endsWith('/sample/subscribed.html') && document.querySelector('h1')?.textContent === 'Local form demo complete'",
@@ -352,7 +418,7 @@ Deno.test({
         "demo form should navigate to its visible no-subscription confirmation",
       );
 
-      await click(cdp, 'a[href="index.html"]');
+      await clickAt(cdp, 'a[href="index.html"]');
       await waitForBrowser(cdp, "location.pathname.endsWith('/sample/index.html')");
       await delay(250);
       assert(
